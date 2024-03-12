@@ -25,6 +25,7 @@ app.get("/products", async (req, res) => {
   res.send(products);
 });
 
+// get product by id
 app.get("/products/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -85,6 +86,42 @@ app.post("/products", async (req, res) => {
   }
 });
 
+// delete method
+app.delete("/products/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Validate that the id parameter is a valid number
+    if (isNaN(id) || !Number.isInteger(Number(id))) {
+      return res.status(400).json({ error: "Invalid id parameter" });
+    }
+
+    // Check if the product exists before attempting to delete it
+    const existingProduct = await prisma.product.findUnique({
+      where: {
+        id: Number(id),
+      },
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Delete the product from the database
+    await prisma.product.delete({
+      where: {
+        id: Number(id),
+      },
+    });
+
+    res.send({ message: "Product deleted successfully" });
+  } catch (error) {
+    // Handle any unexpected errors
+    console.error("Error deleting product:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // put method
 app.put("/products/:id", async (req, res) => {
   try {
@@ -138,17 +175,18 @@ app.put("/products/:id", async (req, res) => {
   }
 });
 
-// delete method
-app.delete("/products/:id", async (req, res) => {
-  const { id } = req.params;
-
+// patch method
+app.patch("/products/:id", async (req, res) => {
   try {
+    const { id } = req.params;
+    const productData = req.body;
+
     // Validate that the id parameter is a valid number
     if (isNaN(id) || !Number.isInteger(Number(id))) {
       return res.status(400).json({ error: "Invalid id parameter" });
     }
 
-    // Check if the product exists before attempting to delete it
+    // Check if the product exists before attempting to update it
     const existingProduct = await prisma.product.findUnique({
       where: {
         id: Number(id),
@@ -159,17 +197,33 @@ app.delete("/products/:id", async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    // Delete the product from the database
-    await prisma.product.delete({
+    // Validate that the "price" field is a number or undefined
+    if (typeof productData.price !== "number" && productData.price !== undefined) {
+      return res
+        .status(400)
+        .json({
+          error:
+            "Invalid data type for 'price'. It should be a number.",
+        });
+    }
+
+    // Update the product in the database
+    const updatedProduct = await prisma.product.update({
       where: {
         id: Number(id),
       },
+      data: {
+        name: productData.name,
+        description: productData.description,
+        price: productData.price,
+        image: productData.image,
+      },
     });
 
-    res.send({ message: "Product deleted successfully" });
+    res.send({ data: updatedProduct, message: "Product updated successfully" });
   } catch (error) {
     // Handle any unexpected errors
-    console.error("Error deleting product:", error);
+    console.error("Error updating product:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
